@@ -161,6 +161,54 @@
     if (Object.keys(seed).length) await P().storage.set(seed);
   }
 
+  /**
+   * Runs ONCE (flag `pickerDedupeDone`). The built-in Vietnamese sample set is created at 11:30
+   * Mon-Sat, exactly the default time of the "What is for lunch?" set the server sends, and the
+   * server set is ON by default -> two popups every lunchtime, 15 seconds apart. Any server set whose
+   * time clashes with an enabled local set is switched off here. The user can switch it back on at
+   * any time in the "Suggested by Reminder" block, and the flag makes sure this never runs twice.
+   */
+  async function dedupeServerPickersOnce() {
+    try {
+      const TIME_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+      const r = await P().storage.get(['pickerDedupeDone', 'pickers', 'serverPickers', 'serverPickerPrefs']);
+      if (r.pickerDedupeDone) return;
+
+      const localTimes = new Set();
+      for (const p of (Array.isArray(r.pickers) ? r.pickers : [])) {
+        if (!p || typeof p !== 'object' || p.enabled === false) continue;
+        if (!Array.isArray(p.items) || p.items.length === 0) continue;
+        for (const t of (Array.isArray(p.times) ? p.times : [])) {
+          if (typeof t === 'string' && TIME_RE.test(t)) localTimes.add(t);
+        }
+      }
+
+      const prefs = (r.serverPickerPrefs && typeof r.serverPickerPrefs === 'object' && !Array.isArray(r.serverPickerPrefs))
+        ? r.serverPickerPrefs : {};
+      let touched = false;
+      if (localTimes.size > 0) {
+        for (const p of (Array.isArray(r.serverPickers) ? r.serverPickers : [])) {
+          if (!p || typeof p !== 'object' || typeof p.id !== 'string') continue;
+          const raw = prefs[p.id];
+          if (raw === false || (raw && typeof raw === 'object' && raw.enabled === false)) continue;
+          const own = (raw && typeof raw === 'object' && Array.isArray(raw.times))
+            ? raw.times.filter(function (t) { return typeof t === 'string' && TIME_RE.test(t); })
+            : [];
+          const times = own.length ? own : (Array.isArray(p.times) ? p.times : []);
+          if (!times.some(function (t) { return localTimes.has(t); })) continue;
+          prefs[p.id] = { enabled: false, times: own };
+          touched = true;
+        }
+      }
+
+      const toWrite = { pickerDedupeDone: true };
+      if (touched) toWrite.serverPickerPrefs = prefs;
+      await P().storage.set(toWrite);
+    } catch (e) {
+      // ignore: this is a convenience migration, never a reason to block boot
+    }
+  }
+
   // Save settings: read the newest copy from storage, then overwrite only the fields in the patch
   async function saveSettings(patch) {
     let latest = null;
@@ -727,6 +775,7 @@
     if (!p) { console.error('[App] Platform missing'); return; }
     await p.ready;
     await loadAndSeed();
+    await dedupeServerPickersOnce();
 
     applyTheme();
     if (window.i18n) window.i18n.currentLang = state.language;

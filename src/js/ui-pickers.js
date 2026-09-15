@@ -635,9 +635,26 @@
     await rebuildSchedule();
   }
 
+  /**
+   * Does this server set share a time with an enabled local set? A clash means two popups that
+   * lunchtime, 15 seconds apart, so the card says so and the user can switch one of them off.
+   */
+  function serverPickerClashTime(picker) {
+    const mine = serverPickerTimes(picker);
+    if (!mine.length) return '';
+    for (const p of (Array.isArray(pickers) ? pickers : [])) {
+      if (!p || typeof p !== 'object' || p.enabled === false) continue;
+      if (!Array.isArray(p.items) || p.items.length === 0) continue;
+      const hit = (Array.isArray(p.times) ? p.times : []).find((x) => mine.includes(x));
+      if (hit) return hit;
+    }
+    return '';
+  }
+
   function buildServerPickerCard(picker) {
     const pref = serverPickerPref(picker.id);
     const items = Array.isArray(picker.items) ? picker.items : [];
+    const clash = pref.enabled ? serverPickerClashTime(picker) : '';
     return buildPickerCardShell({
       id: picker.id,
       icon: picker.icon || '🍽️',
@@ -645,7 +662,10 @@
       badge: t('serverPickerBadge'),
       badgeTitle: t('serverPickerBadgeTitle'),
       schedule: formatPickerSchedule(serverPickerWithState(picker)),
-      scheduleNote: pref.times ? t('serverPickerCustomTime') : '',
+      scheduleNote: [
+        pref.times ? t('serverPickerCustomTime') : '',
+        clash ? t('serverPickerClash').replace('{time}', clash) : ''
+      ].filter(Boolean).join(' · '),
       enabled: pref.enabled,
       tags: [
         { text: '🍽️ ' + items.length, title: t('pickerItems') },

@@ -288,10 +288,17 @@
     const ids = new Set(sets.map(function (p) { return p.id; }));
     const prefs = obj(store.serverPickerPrefs);
     const st = obj(store.serverPickerState);
-    const nextPrefs = {};
-    const nextState = {};
-    for (const id of Object.keys(prefs)) if (ids.has(id)) nextPrefs[id] = prefs[id];
-    for (const id of Object.keys(st)) if (ids.has(id)) nextState[id] = st[id];
+    // Prune ONLY when the payload really carries sets. An empty list can just be a response that
+    // arrived without a country header (or a transient server issue); pruning on that would delete the
+    // user's own times for good, and the set would come back on its default time and fire at the wrong hour.
+    let nextPrefs = prefs;
+    let nextState = st;
+    if (sets.length > 0) {
+      nextPrefs = {};
+      nextState = {};
+      for (const id of Object.keys(prefs)) if (ids.has(id)) nextPrefs[id] = prefs[id];
+      for (const id of Object.keys(st)) if (ids.has(id)) nextState[id] = st[id];
+    }
     const changed = JSON.stringify(before) !== JSON.stringify(sets);
     await sset({ serverPickers: sets, serverPickerPrefs: nextPrefs, serverPickerState: nextState });
     return changed;

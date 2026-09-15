@@ -296,3 +296,31 @@ test('init: ensureInstallId, throttled API call at startup, then every 30 minute
   await env.advance(60 * MIN);
   assert.equal(calls.length, 2);
 });
+
+test('an EMPTY pickers list never prunes the preferences (a response without a country header must not wipe the user times)', async () => {
+  const env = createEnv({ now: T0 });
+  env.loadScheduler();
+  const A = env.loadApi();
+  env.seed({
+    serverPickers: [serverPicker()],
+    serverPickerPrefs: { 'srv-5': { enabled: true, times: ['12:15'] } },
+    serverPickerState: { 'srv-5': 'pho' },
+    serverPickersHash: 'h0'
+  });
+  env.mockFetch(() => ({ status: 200, json: { code: 200, version: '2.16.4', pickers: [], pickersHash: 'h-empty' } }));
+  await A.callVersionAPI(true);
+
+  assert.deepEqual(env.get('serverPickers'), [], 'the empty list still replaces the sets');
+  assert.deepEqual(
+    env.get('serverPickerPrefs'),
+    { 'srv-5': { enabled: true, times: ['12:15'] } },
+    'the time the user set is kept, so the set does not come back on its default time'
+  );
+  assert.deepEqual(env.get('serverPickerState'), { 'srv-5': 'pho' }, 'last picked item is kept too');
+
+  // The set comes back: the user's time is still there and the pref of a set that really vanished is pruned.
+  env.setNow(T0 + 31 * MIN);
+  env.mockFetch(() => ({ status: 200, json: { code: 200, version: '2.16.4', pickers: [serverPicker()], pickersHash: 'h1' } }));
+  await A.callVersionAPI(true);
+  assert.deepEqual(env.get('serverPickerPrefs'), { 'srv-5': { enabled: true, times: ['12:15'] } });
+});
