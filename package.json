@@ -1,0 +1,17 @@
+{
+  "name": "reminder-desktop",
+  "version": "1.1.2",
+  "private": true,
+  "description": "Reminder desktop app (Tauri v2) - reminders + food and drink pickers",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:debug": "tauri build --debug",
+    "web": "node scripts/serve.js",
+    "test": "node scripts/test.js",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.0"
+  }
+}

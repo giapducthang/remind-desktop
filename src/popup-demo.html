@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Popup demo (QA)</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    /* QA page: only for testing PopupRenderer in a browser. Not part of the user interface. */
+    html, body { overflow: auto; }
+    body {
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+    }
+    body.demo-dark { background: #1e293b; color: #e2e8f0; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .demo-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; }
+    .demo-row button, .demo-row select {
+      min-height: 36px; padding: 6px 12px; border-radius: 8px; border: 1px solid #94a3b8;
+      background: #fff; color: #0f172a; cursor: pointer; font: inherit;
+    }
+    .demo-row button.on { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+    .demo-row label { display: inline-flex; align-items: center; gap: 6px; }
+    #eventLog {
+      background: #0f172a; color: #a5f3fc; padding: 10px; border-radius: 8px; min-height: 160px;
+      max-height: 320px; overflow: auto; font-size: 12px; white-space: pre-wrap; margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>PopupRenderer demo (browser mode)</h1>
+  <div class="demo-row">
+    <button type="button" id="btnReminder">Show reminder</button>
+    <button type="button" id="btnReminderImage">Show reminder + image + server message</button>
+    <button type="button" id="btnPicker">Show picker</button>
+    <button type="button" id="btnPickerNoPrice">Show picker (no prices, 2 items)</button>
+    <button type="button" id="btnHide">Hide</button>
+  </div>
+  <div class="demo-row">
+    <button type="button" id="btnTheme">Dark: off</button>
+    <button type="button" id="btnLowPerf">Low perf: off</button>
+    <button type="button" id="btnSound">Sound: on</button>
+    <button type="button" id="btnTiny">displayMinutes 0.05: off</button>
+    <label>Language
+      <select id="selLang">
+        <option value="en">en</option>
+        <option value="vi">vi</option>
+      </select>
+    </label>
+    <button type="button" id="btnClearLog">Clear log</button>
+  </div>
+  <pre id="eventLog"></pre>
+
+  <script src="js/platform.js"></script>
+  <script src="js/popup.js"></script>
+  <script src="js/popup-demo.js"></script>
+</body>
+</html>

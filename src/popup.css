@@ -1,0 +1,883 @@
+/* popup.css - ported from the browser extension's popup stylesheet (only the reminder popup + picker + low-perf + reduced-motion parts).
+   Differences from the extension (DESKTOP-SPEC §5):
+   - .health-reminder-notification is NO LONGER a full-screen overlay (position: fixed; inset: 0) but
+     an ordinary card (position: relative; width: 100%) filling the popup window / overlay.
+   - There is no .hrn-backdrop.
+   - The !important pins are dropped (no hostile page CSS to fight), selector/class names are unchanged.
+   - Dark/light: the renderer puts a .dark / .light class on the root. popup-host.js also sets data-theme on <html>,
+     but this CSS relies on the root class only.
+   Fonts: system fonts, Google Fonts are NOT loaded. */
+
+html, body {
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#popupRoot {
+  width: 100%;
+}
+
+/* Overlay for browser mode (platform.js creates .rmd-popup-overlay and renders inside it).
+   The position comes from the pos-* class (SPEC §22.4) - it defaults to the bottom-right corner when the class is missing. */
+.rmd-popup-overlay {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  z-index: 99999;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 5 positions. Always set BOTH axes so this class overrides every default rule above;
+   use 'auto' and NEVER negative values -> a horizontal scrollbar can never appear
+   when the viewport is exactly 400px wide (max-width then pulls the card down to 368px). */
+.rmd-popup-overlay.pos-bottom-right {
+  top: auto;
+  right: 16px;
+  bottom: 16px;
+  left: auto;
+  transform: none;
+}
+
+.rmd-popup-overlay.pos-bottom-left {
+  top: auto;
+  right: auto;
+  bottom: 16px;
+  left: 16px;
+  transform: none;
+}
+
+.rmd-popup-overlay.pos-top-right {
+  top: 16px;
+  right: 16px;
+  bottom: auto;
+  left: auto;
+  transform: none;
+}
+
+.rmd-popup-overlay.pos-top-left {
+  top: 16px;
+  right: auto;
+  bottom: auto;
+  left: 16px;
+  transform: none;
+}
+
+/* Centered on BOTH axes. */
+.rmd-popup-overlay.pos-center {
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Browser mode: the overlay floats above the page content, so it needs a shadow plus a margin so the shadow is not clipped. */
+.rmd-popup-overlay .health-reminder-notification {
+  padding: 10px;
+}
+
+.rmd-popup-overlay .health-reminder-notification.light .hrn-modal {
+  border-color: transparent;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35);
+}
+
+.rmd-popup-overlay .health-reminder-notification.dark .hrn-modal {
+  border-color: transparent;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+/* ==================== POPUP FRAME (card) ==================== */
+.health-reminder-notification {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  /* The popup window (Tauri) has no margin: the card fills the window and its rounded corners show the transparent background.
+     Do NOT set padding + box-shadow here - the shadow gets clipped at the window edge into a square grey smudge (seen for real). */
+  padding: 0;
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.4;
+}
+
+.health-reminder-notification.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.health-reminder-notification.hide {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.health-reminder-notification * {
+  box-sizing: border-box;
+}
+
+/* Modal (card) */
+.hrn-modal {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  padding: 24px 24px 32px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  overflow: hidden;
+  text-align: center;
+}
+
+/* Light / Dark */
+.health-reminder-notification.light .hrn-modal {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+}
+
+.health-reminder-notification.dark .hrn-modal {
+  background: #020617;
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+/* Icon + pulse */
+.hrn-icon-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  width: 112px;
+  height: 112px;
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+.hrn-icon {
+  font-size: 60px;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+.hrn-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  opacity: 0.9;
+  filter: blur(12px);
+  animation: hrn-pulse 1.6s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes hrn-pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.12); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 0.9; }
+}
+
+/* Content */
+.hrn-content {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.hrn-title {
+  margin: 0 0 6px;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.hrn-time {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 20px;
+}
+
+.health-reminder-notification.dark .hrn-time {
+  color: #94a3b8;
+}
+
+/* ==================== IMAGE ==================== */
+.hrn-image-wrapper {
+  width: calc(100% - 100px);
+  margin: 12px 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.hrn-version-image {
+  max-width: 100%;
+  max-height: 180px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.hrn-version-image:hover {
+  transform: scale(1.02);
+}
+
+.health-reminder-notification.with-image .hrn-modal {
+  gap: 20px;
+}
+
+.health-reminder-notification.with-image .hrn-content {
+  gap: 8px;
+}
+
+.health-reminder-notification.with-image .hrn-title {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.health-reminder-notification.dark .hrn-version-image {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Version message from the server */
+.hrn-version-message {
+  display: block;
+  max-width: 100%;
+  font-size: 12px;
+  color: #0ea5e9;
+  margin-top: 8px;
+  text-decoration: none;
+  word-break: break-word;
+  transition: color 0.2s ease;
+}
+
+a.hrn-version-message:hover {
+  color: #0284c7;
+  text-decoration: underline;
+}
+
+span.hrn-version-message {
+  cursor: default;
+}
+
+.health-reminder-notification.dark .hrn-version-message {
+  color: #60a5fa;
+}
+
+.health-reminder-notification.dark a.hrn-version-message:hover {
+  color: #93c5fd;
+}
+
+/* Close button (hit area >= 40px) */
+.hrn-dismiss {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.06);
+  color: #64748b;
+  font: inherit;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.health-reminder-notification.dark .hrn-dismiss {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.hrn-dismiss:hover {
+  background: rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+.health-reminder-notification.dark .hrn-dismiss:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.hrn-dismiss svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.hrn-dismiss:focus-visible,
+.hrn-version-message:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.health-reminder-notification.dark .hrn-dismiss:focus-visible,
+.health-reminder-notification.dark .hrn-version-message:focus-visible {
+  outline-color: #93c5fd;
+}
+
+/* Progress bar (counts down the display time) */
+.hrn-progress {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 8px;
+  background: rgba(148, 163, 184, 0.35);
+  overflow: hidden;
+}
+
+.health-reminder-notification.dark .hrn-progress {
+  background: rgba(30, 64, 175, 0.55);
+}
+
+.hrn-progress-bar {
+  width: 100%;
+  height: 100%;
+  transform-origin: left;
+  animation-name: hrn-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes hrn-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+.health-reminder-notification.paused .hrn-progress-bar {
+  animation-play-state: paused;
+}
+
+/* ==================== PICKER POPUP (the picker spec §5/§9/§12/§13/§19) ==================== */
+.health-reminder-notification.hrn-picker {
+  --hrn-picker-muted: #64748b;
+  --hrn-picker-surface: rgba(15, 23, 42, 0.05);
+  --hrn-picker-border: rgba(15, 23, 42, 0.12);
+  /* Accent color (same as --accent-primary in the main window) - §19 */
+  --hrn-picker-accent: #0ea5e9;
+  --hrn-picker-accent-strong: #0284c7;
+  --hrn-picker-on-accent: #ffffff;
+  --hrn-picker-btn-text: #0f172a;
+  --hrn-picker-text: #0f172a;
+  --hrn-picker-tile-bg: rgba(255, 255, 255, 0.92);
+  --hrn-picker-focus: #2563eb;
+}
+
+.health-reminder-notification.hrn-picker.dark {
+  --hrn-picker-muted: #94a3b8;
+  --hrn-picker-surface: rgba(148, 163, 184, 0.14);
+  --hrn-picker-border: rgba(148, 163, 184, 0.28);
+  --hrn-picker-accent: #38bdf8;
+  --hrn-picker-accent-strong: #7dd3fc;
+  --hrn-picker-on-accent: #0f172a;
+  --hrn-picker-btn-text: #e2e8f0;
+  --hrn-picker-text: #e2e8f0;
+  --hrn-picker-tile-bg: rgba(15, 23, 42, 0.72);
+  --hrn-picker-focus: #93c5fd;
+}
+
+.health-reminder-notification.hrn-picker .hrn-modal {
+  color: var(--hrn-picker-text);
+  text-align: center;
+  gap: 14px;
+  padding: 22px 18px 32px;
+}
+
+/* Picker set name - small, secondary */
+.hrn-picker .hrn-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding-right: 32px;
+  padding-left: 32px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hrn-picker-muted);
+  max-width: 100%;
+}
+
+.hrn-picker .hrn-picker-head-icon {
+  font-size: 18px;
+  line-height: 1;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+.hrn-picker .hrn-picker-head-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hrn-picker [hidden] {
+  display: none !important;
+}
+
+/* ==================== "LOOT BOX" SPIN REEL (§9) ==================== */
+.hrn-picker .hrn-picker-reel {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  height: 122px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--hrn-picker-surface);
+  border: 1px solid var(--hrn-picker-border);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+  contain: paint;
+}
+
+.hrn-picker .hrn-picker-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  width: max-content;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+.hrn-picker .hrn-picker-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--hrn-picker-accent);
+  box-shadow: 0 0 8px var(--hrn-picker-accent);
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.25s ease;
+}
+
+.hrn-picker.picker-result .hrn-picker-marker {
+  opacity: 0;
+}
+
+/* A single item tile */
+.hrn-picker .hrn-picker-tile {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 92px;
+  height: 100px;
+  padding: 6px;
+  margin: 0;
+  border-radius: 12px;
+  background: var(--hrn-picker-tile-bg);
+  border: 1px solid transparent;
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hrn-picker .hrn-picker-tile-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.hrn-picker .hrn-picker-tile-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: none;
+}
+
+.hrn-picker .hrn-picker-tile-emoji {
+  font-size: 34px;
+  line-height: 1;
+  color: var(--hrn-picker-text);
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+.hrn-picker .hrn-picker-tile-name {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--hrn-picker-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Winning tile: border + a light glow */
+.hrn-picker .hrn-picker-tile.is-winner {
+  border-color: var(--hrn-picker-accent);
+  box-shadow: 0 0 0 2px var(--hrn-picker-accent) inset, 0 6px 18px rgba(14, 165, 233, 0.35);
+  transform: scale(1.06);
+}
+
+.hrn-picker .hrn-picker-tile.is-winner .hrn-picker-tile-name {
+  color: var(--hrn-picker-text);
+  font-weight: 700;
+}
+
+/* While idle: the reel is dimmed so the Spin button stands out */
+.hrn-picker.picker-idle .hrn-picker-reel {
+  opacity: 0.65;
+}
+
+/* While spinning: the Spin button is in a waiting state */
+.hrn-picker.picker-spinning .hrn-picker-spin {
+  cursor: default;
+  opacity: 0.75;
+}
+
+/* The winning item name is the heading */
+.hrn-picker .hrn-picker-item-name {
+  margin: 0;
+  padding: 0;
+  min-height: 31px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--hrn-picker-text);
+  text-align: center;
+  word-break: break-word;
+}
+
+/* ==================== PRICE RANGE PICKER (§13) ==================== */
+.hrn-picker .hrn-picker-prices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.hrn-picker .hrn-picker-prices[hidden] {
+  display: none !important;
+}
+
+.hrn-picker .hrn-picker-price-chip {
+  display: inline-block;
+  margin: 0;
+  padding: 4px 12px;
+  border: 1px solid var(--hrn-picker-border);
+  border-radius: 999px;
+  background: var(--hrn-picker-surface);
+  color: var(--hrn-picker-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  /* Hit area >= 40px even though the chip is small: transparent padding via box-shadow does not work, so use min-height */
+  min-height: 28px;
+}
+
+.hrn-picker .hrn-picker-price-chip:hover {
+  color: var(--hrn-picker-text);
+}
+
+.hrn-picker .hrn-picker-price-chip.is-on {
+  background: var(--hrn-picker-accent);
+  border-color: var(--hrn-picker-accent);
+  color: var(--hrn-picker-on-accent);
+}
+
+.hrn-picker .hrn-picker-price-chip:focus-visible {
+  outline: 2px solid var(--hrn-picker-accent);
+  outline-offset: 2px;
+}
+
+/* Price range of the winning item: right under the item name, shown only in the result state */
+.hrn-picker .hrn-picker-price {
+  display: block;
+  width: 100%;
+  margin: -4px 0 0;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  color: var(--hrn-picker-muted);
+}
+
+.hrn-picker .hrn-picker-price[hidden],
+.hrn-picker.picker-idle .hrn-picker-price,
+.hrn-picker.picker-spinning .hrn-picker-price {
+  display: none !important;
+}
+
+/* ==================== LARGE RESULT (§12) ==================== */
+.hrn-picker .hrn-picker-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  height: 190px;
+  margin: 0;
+  padding: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--hrn-picker-surface);
+  border: 1px solid var(--hrn-picker-border);
+}
+
+.hrn-picker .hrn-picker-hero[hidden] {
+  display: none !important;
+}
+
+.hrn-picker .hrn-picker-hero-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.hrn-picker .hrn-picker-hero-emoji {
+  font-size: 92px;
+  line-height: 1;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+/* Idle / spinning: the item name is empty -> hide it entirely */
+.hrn-picker.picker-idle .hrn-picker-item-name,
+.hrn-picker.picker-spinning .hrn-picker-item-name {
+  display: none;
+}
+
+/* Result state: hide the reel, enlarge the item name */
+.hrn-picker.picker-result .hrn-picker-reel {
+  display: none;
+}
+
+.hrn-picker.picker-result .hrn-picker-item-name {
+  font-size: 42px;
+  line-height: 1.2;
+  min-height: 0;
+  letter-spacing: -0.5px;
+}
+
+/* Action button row */
+.hrn-picker .hrn-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.hrn-picker .hrn-btn {
+  flex: 1 1 auto;
+  min-height: 44px;
+  min-width: 120px;
+  margin: 0;
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.hrn-picker .hrn-btn-secondary {
+  background: var(--hrn-picker-surface);
+  border-color: var(--hrn-picker-border);
+  color: var(--hrn-picker-btn-text);
+}
+
+.hrn-picker .hrn-btn-secondary:hover {
+  background: var(--hrn-picker-border);
+  transform: translateY(-1px);
+}
+
+.hrn-picker .hrn-btn-primary {
+  background: var(--hrn-picker-accent);
+  color: var(--hrn-picker-on-accent);
+}
+
+.hrn-picker .hrn-btn-primary:hover {
+  background: var(--hrn-picker-accent-strong);
+  transform: translateY(-1px);
+}
+
+.hrn-picker .hrn-btn:active {
+  transform: translateY(0);
+}
+
+.hrn-picker .hrn-btn:focus-visible,
+.hrn-picker .hrn-dismiss:focus-visible,
+.hrn-picker .hrn-version-message:focus-visible {
+  outline: 3px solid var(--hrn-picker-focus);
+  outline-offset: 2px;
+}
+
+.hrn-picker .hrn-time {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--hrn-picker-muted);
+}
+
+.hrn-picker .hrn-version-message {
+  margin: 0;
+  font-size: 12px;
+  color: var(--hrn-picker-accent);
+  text-align: center;
+}
+
+.health-reminder-notification.hrn-picker.dark .hrn-version-message {
+  color: #60a5fa;
+}
+
+.hrn-picker .hrn-dismiss {
+  padding: 0;
+  border: none;
+  background: var(--hrn-picker-surface);
+  color: var(--hrn-picker-muted);
+}
+
+.hrn-picker .hrn-dismiss:hover {
+  background: var(--hrn-picker-border);
+}
+
+/* ==================== LOW PERFORMANCE MODE ==================== */
+.health-reminder-notification.low-perf {
+  transition: opacity 0.1s ease;
+  transform: none;
+}
+
+.health-reminder-notification.low-perf.show,
+.health-reminder-notification.low-perf.hide {
+  transform: none;
+}
+
+.health-reminder-notification.low-perf .hrn-modal {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.health-reminder-notification.low-perf .hrn-pulse {
+  animation: none;
+  filter: none;
+  opacity: 0.5;
+}
+
+.health-reminder-notification.low-perf .hrn-progress-bar {
+  animation: none;
+  transition: transform 0.5s linear;
+}
+
+.health-reminder-notification.low-perf .hrn-btn:hover {
+  transform: none;
+}
+
+.health-reminder-notification.low-perf .hrn-picker-strip {
+  transition: none !important;
+  will-change: auto;
+}
+
+.health-reminder-notification.low-perf .hrn-picker-tile,
+.health-reminder-notification.low-perf .hrn-btn,
+.health-reminder-notification.low-perf .hrn-version-image {
+  transition: none;
+}
+
+.health-reminder-notification.low-perf .hrn-version-image:hover {
+  transform: none;
+}
+
+/* ==================== REDUCED MOTION ==================== */
+@media (prefers-reduced-motion: reduce) {
+  .health-reminder-notification {
+    transition: opacity 0.1s linear;
+    transform: none;
+  }
+  .health-reminder-notification.show,
+  .health-reminder-notification.hide {
+    transform: none;
+  }
+  .hrn-pulse {
+    animation: none;
+  }
+  .hrn-progress-bar {
+    animation: none;
+    transition: none;
+  }
+  .hrn-version-image {
+    transition: none;
+  }
+  .hrn-version-image:hover {
+    transform: none;
+  }
+  .hrn-picker .hrn-picker-strip,
+  .hrn-picker .hrn-picker-tile {
+    transition: none !important;
+    animation: none;
+    will-change: auto;
+  }
+  .hrn-picker .hrn-btn {
+    transition: none;
+  }
+  .hrn-picker .hrn-btn:hover,
+  .hrn-picker .hrn-btn:active {
+    transform: none;
+  }
+}

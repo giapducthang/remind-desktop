@@ -1,0 +1,19 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Tauri / Rust build output
+src-tauri/target/
+src-tauri/gen/
+src-tauri/WixTools/
+dist/
+
+# Update signing key - NEVER commit (put it in the GitHub secret TAURI_SIGNING_PRIVATE_KEY)
+.tauri/
+*.key
+*.key.pub
+*.sig
+
+# OS / editor
+.DS_Store
+Thumbs.db

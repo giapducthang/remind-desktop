@@ -1,0 +1,42 @@
+[package]
+name = "reminder-desktop"
+version = "1.1.2"
+description = "Reminder - focused work reminders plus food and drink pickers (desktop)"
+authors = ["noti.vn"]
+edition = "2021"
+rust-version = "1.77.2"
+publish = false
+
+# The lib name differs from the bin name to avoid clashing output files (.pdb) on Windows.
+[lib]
+name = "reminder_desktop_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "reminder-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# macos-private-api: needed for the transparent popup window on macOS (tauri.conf.json app.macOSPrivateApi = true);
+# tauri-build checks this feature on every OS, so it has to be enabled here and not per target.
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-store = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+
+
+# Keep the app as small as possible.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
